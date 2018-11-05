@@ -448,6 +448,7 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 			Graphics()->TextureSet(pInfo->m_aTextures[SKINPART_FEET]);
 			Graphics()->QuadsBegin();
 			CAnimKeyframe *pFoot = f ? pAnim->GetFrontFoot() : pAnim->GetBackFoot();
+			bool isLookingLeft = pAnim->GetBody()->m_Angle < 0;
 
 			float w = BaseSize/2.1f;
 			float h = w;
@@ -457,7 +458,20 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 			if(OutLine)
 			{
 				Graphics()->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
-				SelectSprite(SPRITE_TEE_FOOT_OUTLINE, 0, 0, 0);
+
+				if(f) {
+					if(isLookingLeft) {
+						SelectSprite(SPRITE_LEFT_TEE_FRONT_FOOT_OUTLINE, 0, 0, 0);
+					} else {
+						SelectSprite(SPRITE_RIGHT_TEE_FRONT_FOOT_OUTLINE, 0, 0, 0);
+					}
+				} else {
+					if(isLookingLeft) {
+						SelectSprite(SPRITE_LEFT_TEE_BACK_FOOT_OUTLINE, 0, 0, 0);
+					} else {
+						SelectSprite(SPRITE_RIGHT_TEE_BACK_FOOT_OUTLINE, 0, 0, 0);
+					}
+				}
 			}
 			else
 			{
@@ -466,7 +480,21 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 				if(Indicate)
 					cs = 0.5f;
 				Graphics()->SetColor(pInfo->m_aColors[SKINPART_FEET].r*cs, pInfo->m_aColors[SKINPART_FEET].g*cs, pInfo->m_aColors[SKINPART_FEET].b*cs, pInfo->m_aColors[SKINPART_FEET].a);
-				SelectSprite(SPRITE_TEE_FOOT, 0, 0, 0);
+
+				if(f) {
+					if(isLookingLeft) {
+						SelectSprite(SPRITE_LEFT_TEE_BACK_FOOT, 0, 0, 0);
+					} else {
+						SelectSprite(SPRITE_RIGHT_TEE_BACK_FOOT, 0, 0, 0);
+					}
+				} else {
+					if(isLookingLeft) {
+						SelectSprite(
+						SelectSprite(SPRITE_LEFT_TEE_BACK_FOOT, 0, 0, 0);
+					} else {
+						SelectSprite(SPRITE_RIGHT_TEE_BACK_FOOT, 0, 0, 0);
+					}
+				}
 			}
 
 			IGraphics::CQuadItem QuadItem(Position.x+pFoot->m_X*AnimScale, Position.y+pFoot->m_Y*AnimScale, w, h);

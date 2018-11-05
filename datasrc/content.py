@@ -400,8 +400,25 @@ container.sprites.Add(Sprite("tee_decoration_outline", set_tee_decoration, 1,0,1
 container.sprites.Add(Sprite("tee_hand", set_tee_hands, 0,0,1,1))
 container.sprites.Add(Sprite("tee_hand_outline", set_tee_hands, 1,0,1,1))
 
-container.sprites.Add(Sprite("tee_foot", set_tee_feet, 0,0,1,1))
-container.sprites.Add(Sprite("tee_foot_outline", set_tee_feet, 1,0,1,1))
+container.sprites.Add(Sprite("tee_backfoot_left_outline", set_tee_feet, 0,0,1,1))
+container.sprites.Add(Sprite("tee_backfoot_left_foot", set_tee_feet, 1,0,1,1))
+container.sprites.Add(Sprite("tee_backfoot_left_shadow", set_tee_feet, 0,1,1,1))
+container.sprites.Add(Sprite("tee_backfoot_left_upper_outline", set_tee_feet, 1,1,1,1))
+
+container.sprites.Add(Sprite("tee_frontfoot_left_outline", set_tee_feet, 0,2,1,1))
+container.sprites.Add(Sprite("tee_frontfoot_left_foot", set_tee_feet, 1,2,1,1))
+container.sprites.Add(Sprite("tee_frontfoot_left_shadow", set_tee_feet, 0,3,1,1))
+container.sprites.Add(Sprite("tee_frontfoot_left_upper_outline", set_tee_feet, 1,3,1,1))
+
+container.sprites.Add(Sprite("tee_backfoot_right_outline", set_tee_feet, 2,0,1,1))
+container.sprites.Add(Sprite("tee_backfoot_right_foot", set_tee_feet, 3,0,1,1))
+container.sprites.Add(Sprite("tee_backfoot_right_shadow", set_tee_feet, 2,1,1,1))
+container.sprites.Add(Sprite("tee_backfoot_right_upper_outline", set_tee_feet, 3,1,1,1))
+
+container.sprites.Add(Sprite("tee_frontfoot_right_outline", set_tee_feet, 2,2,1,1))
+container.sprites.Add(Sprite("tee_frontfoot_right_foot", set_tee_feet, 3,2,1,1))
+container.sprites.Add(Sprite("tee_frontfoot_right_shadow", set_tee_feet, 2,3,1,1))
+container.sprites.Add(Sprite("tee_frontfoot_right_upper_outline", set_tee_feet, 3,3,1,1))
 
 container.sprites.Add(Sprite("tee_eyes_normal", set_tee_eyes, 0,0,1,1))
 container.sprites.Add(Sprite("tee_eyes_angry", set_tee_eyes, 1,0,1,1))

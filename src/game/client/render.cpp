@@ -461,15 +461,15 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 
 				if(f) {
 					if(isLookingLeft) {
-						SelectSprite(SPRITE_LEFT_TEE_FRONT_FOOT_OUTLINE, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_LEFT_FRONT_FOOT_OUTLINE, 0, 0, 0);
 					} else {
-						SelectSprite(SPRITE_RIGHT_TEE_FRONT_FOOT_OUTLINE, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_RIGHT_FRONT_FOOT_OUTLINE, 0, 0, 0);
 					}
 				} else {
 					if(isLookingLeft) {
-						SelectSprite(SPRITE_LEFT_TEE_BACK_FOOT_OUTLINE, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_LEFT_BACK_FOOT_OUTLINE, 0, 0, 0);
 					} else {
-						SelectSprite(SPRITE_RIGHT_TEE_BACK_FOOT_OUTLINE, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_RIGHT_BACK_FOOT_OUTLINE, 0, 0, 0);
 					}
 				}
 			}
@@ -483,16 +483,16 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 
 				if(f) {
 					if(isLookingLeft) {
-						SelectSprite(SPRITE_LEFT_TEE_BACK_FOOT, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_LEFT_FRONT_FOOT, 0, 0, 0);
 					} else {
-						SelectSprite(SPRITE_RIGHT_TEE_BACK_FOOT, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_RIGHT_FRONT_FOOT, 0, 0, 0);
 					}
 				} else {
 					if(isLookingLeft) {
 						SelectSprite(
-						SelectSprite(SPRITE_LEFT_TEE_BACK_FOOT, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_LEFT_BACK_FOOT, 0, 0, 0);
 					} else {
-						SelectSprite(SPRITE_RIGHT_TEE_BACK_FOOT, 0, 0, 0);
+						SelectSprite(SPRITE_TEE_RIGHT_BACK_FOOT, 0, 0, 0);
 					}
 				}
 			}

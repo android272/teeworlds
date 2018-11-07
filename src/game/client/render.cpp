@@ -489,7 +489,6 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 					}
 				} else {
 					if(isLookingLeft) {
-						SelectSprite(
 						SelectSprite(SPRITE_TEE_LEFT_BACK_FOOT, 0, 0, 0);
 					} else {
 						SelectSprite(SPRITE_TEE_RIGHT_BACK_FOOT, 0, 0, 0);

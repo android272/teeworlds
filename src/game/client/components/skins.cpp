@@ -14,7 +14,7 @@
 #include "skins.h"
 
 
-const char * const CSkins::ms_apSkinPartNames[NUM_SKINPARTS] = {"body", "marking", "decoration", "hands", "feet", "eyes"}; /* Localize("body");Localize("marking");Localize("decoration");Localize("hands");Localize("feet");Localize("eyes"); */
+const char * const CSkins::ms_apSkinPartNames[NUM_SKINPARTS] = {"body", "marking", "decoration", "hands", "feet", "eyes"}; /* Localize("body","skins");Localize("marking","skins");Localize("decoration","skins");Localize("hands","skins");Localize("feet","skins");Localize("eyes","skins"); */
 const char * const CSkins::ms_apColorComponents[NUM_COLOR_COMPONENTS] = {"hue", "sat", "lgt", "alp"};
 
 char *const CSkins::ms_apSkinVariables[NUM_SKINPARTS] = {g_Config.m_PlayerSkinBody, g_Config.m_PlayerSkinMarking, g_Config.m_PlayerSkinDecoration,
@@ -28,8 +28,7 @@ int *const CSkins::ms_apColorVariables[NUM_SKINPARTS] = {&g_Config.m_PlayerColor
 int CSkins::SkinPartScan(const char *pName, int IsDir, int DirType, void *pUser)
 {
 	CSkins *pSelf = (CSkins *)pUser;
-	int l = str_length(pName);
-	if(l < 4 || IsDir || str_comp(pName+l-4, ".png") != 0)
+	if(IsDir || !str_endswith(pName, ".png"))
 		return 0;
 
 	char aBuf[512];
@@ -93,7 +92,7 @@ int CSkins::SkinPartScan(const char *pName, int IsDir, int DirType, void *pUser)
 		Part.m_Flags |= SKINFLAG_SPECIAL;
 	if(DirType != IStorage::TYPE_SAVE)
 		Part.m_Flags |= SKINFLAG_STANDARD;
-	str_copy(Part.m_aName, pName, min((int)sizeof(Part.m_aName),l-3));
+	str_truncate(Part.m_aName, sizeof(Part.m_aName), pName, str_length(pName) - 4);
 	if(g_Config.m_Debug)
 	{
 		str_format(aBuf, sizeof(aBuf), "load skin part %s", Part.m_aName);
@@ -106,8 +105,7 @@ int CSkins::SkinPartScan(const char *pName, int IsDir, int DirType, void *pUser)
 
 int CSkins::SkinScan(const char *pName, int IsDir, int DirType, void *pUser)
 {
-	int l = str_length(pName);
-	if(l < 5 || IsDir || str_comp(pName+l-5, ".json") != 0)
+	if(IsDir || !str_endswith(pName, ".json"))
 		return 0;
 
 	CSkins *pSelf = (CSkins *)pUser;
@@ -119,14 +117,13 @@ int CSkins::SkinScan(const char *pName, int IsDir, int DirType, void *pUser)
 	if(!File)
 		return 0;
 	int FileSize = (int)io_length(File);
-	char *pFileData = (char *)mem_alloc(FileSize+1, 1);
+	char *pFileData = (char *)mem_alloc(FileSize, 1);
 	io_read(File, pFileData, FileSize);
-	pFileData[FileSize] = 0;
 	io_close(File);
 
 	// init
 	CSkin Skin = pSelf->m_DummySkin;
-	str_copy(Skin.m_aName, pName, min((int)sizeof(Skin.m_aName),l-4));
+	str_truncate(Skin.m_aName, sizeof(Skin.m_aName), pName, str_length(pName) - 5);
 	if(pSelf->Find(Skin.m_aName, true) != -1)
 		return 0;
 	bool SpecialSkin = pName[0] == 'x' && pName[1] == '_';
@@ -135,11 +132,12 @@ int CSkins::SkinScan(const char *pName, int IsDir, int DirType, void *pUser)
 	json_settings JsonSettings;
 	mem_zero(&JsonSettings, sizeof(JsonSettings));
 	char aError[256];
-	json_value *pJsonData = json_parse_ex(&JsonSettings, pFileData, aError);
+	json_value *pJsonData = json_parse_ex(&JsonSettings, pFileData, FileSize, aError);
+	mem_free(pFileData);
+
 	if(pJsonData == 0)
 	{
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, aBuf, aError);
-		mem_free(pFileData);
 		return 0;
 	}
 
@@ -197,7 +195,6 @@ int CSkins::SkinScan(const char *pName, int IsDir, int DirType, void *pUser)
 
 	// clean up
 	json_value_free(pJsonData);
-	mem_free(pFileData);
 
 	// set skin data
 	Skin.m_Flags = SpecialSkin ? SKINFLAG_SPECIAL : 0;
@@ -271,6 +268,23 @@ void CSkins::OnInit()
 	// add dummy skin
 	if(!m_aSkins.size())
 		m_aSkins.add(m_DummySkin);
+
+	// add xmas hat
+	const char *pFileName = "skins/xmas_hat.png";
+	CImageInfo Info;
+	if(!Graphics()->LoadPNG(&Info, pFileName, IStorage::TYPE_ALL) || Info.m_Width != 128 || Info.m_Height != 512)
+	{
+		char aBuf[128];
+		str_format(aBuf, sizeof(aBuf), "failed to load xmas hat '%s'", pFileName);
+		Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "game", aBuf);
+	}
+	else
+	{
+		char aBuf[128];
+		str_format(aBuf, sizeof(aBuf), "loaded xmas hat '%s'", pFileName);
+		Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "game", aBuf);
+		m_XmasHatTexture = Graphics()->LoadTextureRaw(Info.m_Width, Info.m_Height, Info.m_Format, Info.m_pData, Info.m_Format, 0);
+	}
 }
 
 void CSkins::AddSkin(const char *pSkinName)

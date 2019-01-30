@@ -19,6 +19,7 @@
 #include <game/client/localization.h>
 #include <game/client/render.h>
 #include <game/client/ui.h>
+#include <game/client/components/menus.h>
 #include <generated/client_data.h>
 
 #include "auto_map.h"
@@ -216,20 +217,20 @@ void CEditorImage::LoadAutoMapper()
 	if(!File)
 		return;
 	int FileSize = (int)io_length(File);
-	char *pFileData = (char *)mem_alloc(FileSize+1, 1);
+	char *pFileData = (char *)mem_alloc(FileSize, 1);
 	io_read(File, pFileData, FileSize);
-	pFileData[FileSize] = 0;
 	io_close(File);
 
 	// parse json data
 	json_settings JsonSettings;
 	mem_zero(&JsonSettings, sizeof(JsonSettings));
 	char aError[256];
-	json_value *pJsonData = json_parse_ex(&JsonSettings, pFileData, aError);
+	json_value *pJsonData = json_parse_ex(&JsonSettings, pFileData, FileSize, aError);
+	mem_free(pFileData);
+
 	if(pJsonData == 0)
 	{
 		m_pEditor->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, aBuf, aError);
-		mem_free(pFileData);
 		return;
 	}
 
@@ -252,7 +253,6 @@ void CEditorImage::LoadAutoMapper()
 
 	// clean up
 	json_value_free(pJsonData);
-	mem_free(pFileData);
 	if(m_pAutoMapper && g_Config.m_Debug)
 	{
 		str_format(aBuf, sizeof(aBuf),"loaded %s.json (%s)", m_aName, IAutoMapper::GetTypeName(m_pAutoMapper->GetType()));
@@ -341,7 +341,7 @@ int CEditor::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned Str
 		{
 			Len = str_length(pStr);
 			int NumChars = Len;
-			ReturnValue |= CLineInput::Manipulate(Input()->GetEvent(i), pStr, StrSize, StrSize, &Len, &s_AtIndex, &NumChars);
+			ReturnValue |= CLineInput::Manipulate(Input()->GetEvent(i), pStr, StrSize, StrSize, &Len, &s_AtIndex, &NumChars, Input());
 		}
 	}
 
@@ -567,6 +567,8 @@ int CEditor::DoButton_File(const void *pID, const char *pText, int Checked, cons
 {
 	if(Checked)
 		RenderTools()->DrawUIRect(pRect, GetButtonColor(pID, Checked), CUI::CORNER_ALL, 3.0f);
+	else if(UI()->HotItem() == pID)
+		RenderTools()->DrawUIRect(pRect, vec4(1,1,1,0.33f), CUI::CORNER_ALL, 3.0f);
 
 	CUIRect t = *pRect;
 	t.VMargin(5.0f, &t);
@@ -815,9 +817,8 @@ void CEditor::CallbackSaveMap(const char *pFileName, int StorageType, void *pUse
 {
 	CEditor *pEditor = static_cast<CEditor*>(pUser);
 	char aBuf[1024];
-	const int Length = str_length(pFileName);
 	// add map extension
-	if(Length <= 4 || pFileName[Length-4] != '.' || str_comp_nocase(pFileName+Length-3, "map"))
+	if(!str_endswith(pFileName, ".map"))
 	{
 		str_format(aBuf, sizeof(aBuf), "%s.map", pFileName);
 		pFileName = aBuf;
@@ -1106,9 +1107,9 @@ void CEditor::DoToolbar(CUIRect ToolBar)
 		if(m_GridFactor < 15)
 			m_GridFactor++;
 	}
-	
+
 	TB_Bottom.VSplitLeft(10.0f, 0, &TB_Bottom);
-	
+
 	// pipette / color picking
 	TB_Bottom.VSplitLeft(50.0f, &Button, &TB_Bottom);
 	static int s_ColorPickingButton = 0;
@@ -1120,16 +1121,16 @@ void CEditor::DoToolbar(CUIRect ToolBar)
 		else
 			m_MouseEdMode = MOUSE_PIPETTE;
 	}
-	
+
 	// display selected color
 	if(m_SelectedColor.a > 0.0f)
 	{
 		TB_Bottom.VSplitLeft(4.0f, 0, &TB_Bottom);
-		
+
 		TB_Bottom.VSplitLeft(24.0f, &Button, &TB_Bottom);
 		RenderTools()->DrawUIRect(&Button, m_SelectedColor, 0, 0.0f);
 	}
-	
+
 }
 
 static void Rotate(const CPoint *pCenter, CPoint *pPoint, float Rotation)
@@ -1583,7 +1584,7 @@ void CEditor::DoQuadEnvelopes(const array<CQuad> &lQuads, IGraphics::CTextureHan
 	//Draw Quads
 	Graphics()->TextureSet(Texture);
 	Graphics()->QuadsBegin();
-	
+
 	for(int j = 0; j < Num; j++)
 	{
 		if(!apEnvelope[j])
@@ -1835,7 +1836,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 	};
 
 	static int s_Operation = OP_NONE;
-	
+
 	if(m_ShowTilePicker)
 	{
 		// remap the screen so it can display the whole tileset
@@ -1922,7 +1923,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 				UI()->SetActiveItem(s_pEditorID);
 			}
 		}
-		
+
 		switch(m_MouseEdMode)
 		{
 			case MOUSE_EDIT:
@@ -1934,7 +1935,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 						m_pTooltip = "Use left mouse button to drag and create a brush.";
 					else
 						m_pTooltip = "Use left mouse button to paint with the brush. Right button clears the brush.";
-		
+
 					if(UI()->CheckActiveItem(s_pEditorID))
 					{
 						CUIRect r;
@@ -1947,13 +1948,13 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 							r.x += r.w;
 							r.w = -r.w;
 						}
-		
+
 						if(r.h < 0)
 						{
 							r.y += r.h;
 							r.h = -r.h;
 						}
-		
+
 						if(s_Operation == OP_BRUSH_DRAW)
 						{
 							if(!m_Brush.IsEmpty())
@@ -1974,7 +1975,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 								char aBuf[256];
 								str_format(aBuf, sizeof(aBuf),"grabbing %f %f %f %f", r.x, r.y, r.w, r.h);
 								Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "editor", aBuf);
-		
+
 								// TODO: do all layers
 								int Grabs = 0;
 								for(int k = 0; k < NumEditLayers; k++)
@@ -2008,11 +2009,11 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 					{
 						if(UI()->MouseButton(1))
 							m_Brush.Clear();
-		
+
 						if(UI()->MouseButton(0) && s_Operation == OP_NONE)
 						{
 							UI()->SetActiveItem(s_pEditorID);
-		
+
 							if(m_Brush.IsEmpty())
 								s_Operation = OP_BRUSH_GRAB;
 							else
@@ -2023,14 +2024,14 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 									if(pEditLayers[k]->m_Type == m_Brush.m_lLayers[0]->m_Type)
 										pEditLayers[k]->BrushPlace(m_Brush.m_lLayers[0], wx, wy);
 								}
-		
+
 							}
-		
+
 							CLayerTiles *pLayer = (CLayerTiles*)GetSelectedLayerType(0, LAYERTYPE_TILES);
 							if((Input()->KeyIsPressed(KEY_LSHIFT) || Input()->KeyIsPressed(KEY_RSHIFT)) && pLayer)
 								s_Operation = OP_BRUSH_PAINT;
 						}
-		
+
 						if(!m_Brush.IsEmpty())
 						{
 							m_Brush.m_OffsetX = -(int)wx;
@@ -2044,7 +2045,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 									break;
 								}
 							}
-		
+
 							CLayerGroup *g = GetSelectedGroup();
 							if(g)
 							{
@@ -2055,7 +2056,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 								m_Brush.Render();
 								float w, h;
 								m_Brush.GetSize(&w, &h);
-		
+
 								IGraphics::CLineItem Array[4] = {
 									IGraphics::CLineItem(0, 0, w, 0),
 									IGraphics::CLineItem(w, 0, w, h),
@@ -2069,7 +2070,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 						}
 					}
 				}
-				
+
 				// quad editing
 				{
 					if(!m_ShowTilePicker && m_Brush.IsEmpty())
@@ -2078,7 +2079,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 						CLayerGroup *g = GetSelectedGroup();
 						if(g)
 							g->MapScreen();
-		
+
 						// adjust z-index
 						{
 							CLayerQuads *pQuadLayer = (CLayerQuads *)GetSelectedLayerType(0, LAYERTYPE_QUADS);
@@ -2123,56 +2124,56 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 								}
 							}
 						}
-						
-		
+
+
 						for(int k = 0; k < NumEditLayers; k++)
 						{
 							if(pEditLayers[k]->m_Type == LAYERTYPE_QUADS)
 							{
 								CLayerQuads *pLayer = (CLayerQuads *)pEditLayers[k];
-		
+
 								if(m_ShowEnvelopePreview == SHOWENV_NONE)
 									m_ShowEnvelopePreview = SHOWENV_ALL;
-		
+
 								Graphics()->TextureClear();
 								Graphics()->QuadsBegin();
 								for(int i = 0; i < pLayer->m_lQuads.size(); i++)
 								{
 									for(int v = 0; v < 4; v++)
 										DoQuadPoint(&pLayer->m_lQuads[i], i, v);
-		
+
 									DoQuad(&pLayer->m_lQuads[i], i);
 								}
 								Graphics()->QuadsEnd();
 							}
 						}
-		
+
 						Graphics()->MapScreen(UI()->Screen()->x, UI()->Screen()->y, UI()->Screen()->w, UI()->Screen()->h);
 					}
 				}
 			} break;
-		
+
 			case MOUSE_PIPETTE:
-			{	
+			{
 				if(UI()->HotItem() == s_pEditorID)
 				{
 					m_pTooltip = "Use left mouse button to pick a color from screen.";
-				
+
 					if(UI()->CheckActiveItem(s_pEditorID))
 					{
 						if(s_Operation == OP_PIPETTE)
 						{
 							const int Width = Graphics()->ScreenWidth();
 							const int Height = Graphics()->ScreenHeight();
-							
+
 							const int px = clamp(0, int(mx * Width/UI()->Screen()->w), Width);
 							const int py = clamp(0, int(my * Height/UI()->Screen()->h), Height);
-							
+
 							unsigned char *pPixelData = 0x0;
 							Graphics()->ReadBackbuffer(&pPixelData, px, py, 1, 1); // get pixel at location (px, py)
-							
+
 							m_SelectedColor = vec4(pPixelData[0] / 255.0f, pPixelData[1] / 255.0f, pPixelData[2] / 255.0f, 1.0f);
-													
+
 							mem_free(pPixelData);
 						}
 					}
@@ -2185,11 +2186,11 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 						}
 					}
 				}
-				
+
 				// leave pipette mode on right-click
 				if(UI()->MouseButton(1))
 					m_MouseEdMode = MOUSE_EDIT;
-					
+
 			} break;
 		}
 
@@ -2344,7 +2345,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 
 		DoQuadEnvelopes(pLayer->m_lQuads, Texture);
 		m_ShowEnvelopePreview = SHOWENV_NONE;
-    }
+	}
 
 	Graphics()->MapScreen(UI()->Screen()->x, UI()->Screen()->y, UI()->Screen()->w, UI()->Screen()->h);
 	//UI()->ClipDisable();
@@ -2415,7 +2416,7 @@ int CEditor::DoProperties(CUIRect *pToolBox, CProperty *pProps, int *pIDs, int *
 			static const char *s_paTexts[4] = {"R", "G", "B", "A"};
 			static int s_aShift[] = {24, 16, 8, 0};
 			int NewColor = 0;
-			
+
 			// extra space
 			CUIRect ColorBox, ColorSlots;
 
@@ -2435,16 +2436,16 @@ int CEditor::DoProperties(CUIRect *pToolBox, CProperty *pProps, int *pIDs, int *
 					Shifter.HMargin(1.0f, &Shifter);
 				}
 			}
-			
+
 			// color picker
 			vec4 Color = vec4(
 				((pProps[i].m_Value >> s_aShift[0])&0xff)/255.0f,
 				((pProps[i].m_Value >> s_aShift[1])&0xff)/255.0f,
 				((pProps[i].m_Value >> s_aShift[2])&0xff)/255.0f,
 				1.0f);
-	
+
 			static int s_ColorPicker, s_ColorPickerID;
-			
+
 			RenderTools()->DrawUIRect(&ColorBox, Color, 0, 0.0f);
 			if(DoButton_Editor_Common(&s_ColorPicker, 0x0, 0, &ColorBox, 0, 0x0))
 			{
@@ -2452,12 +2453,12 @@ int CEditor::DoProperties(CUIRect *pToolBox, CProperty *pProps, int *pIDs, int *
 				m_SelectedPickerColor = m_InitialPickerColor;
 				UiInvokePopupMenu(&s_ColorPickerID, 0, UI()->MouseX(), UI()->MouseY(), 180, 180, PopupColorPicker);
 			}
-			
+
 			if(m_InitialPickerColor != m_SelectedPickerColor)
 			{
 				m_InitialPickerColor = m_SelectedPickerColor;
 				vec3 c = HsvToRgb(m_SelectedPickerColor);
-				NewColor = ((int)(c.r * 255.0f)&0xff) << 24 | ((int)(c.g * 255.0f)&0xff) << 16 | ((int)(c.b * 255.0f)&0xff) << 8 | (pProps[i].m_Value&0xff);		
+				NewColor = ((int)(c.r * 255.0f)&0xff) << 24 | ((int)(c.g * 255.0f)&0xff) << 16 | ((int)(c.b * 255.0f)&0xff) << 8 | (pProps[i].m_Value&0xff);
 			}
 
 			if(NewColor != pProps[i].m_Value)
@@ -3025,19 +3026,25 @@ void CEditor::RenderImages(CUIRect ToolBox, CUIRect ToolBar, CUIRect View)
 static int EditorListdirCallback(const char *pName, int IsDir, int StorageType, void *pUser)
 {
 	CEditor *pEditor = (CEditor*)pUser;
-	int Length = str_length(pName);
-	if((pName[0] == '.' && (pName[1] == 0 ||
-		(pName[1] == '.' && pName[2] == 0 && (!str_comp(pEditor->m_pFileDialogPath, "maps") || !str_comp(pEditor->m_pFileDialogPath, "mapres"))))) ||
-		(!IsDir && ((pEditor->m_FileDialogFileType == CEditor::FILETYPE_MAP && (Length < 4 || str_comp(pName+Length-4, ".map"))) ||
-		(pEditor->m_FileDialogFileType == CEditor::FILETYPE_IMG && (Length < 4 || str_comp(pName+Length-4, ".png"))))))
+	const char *pExt = 0;
+	switch(pEditor->m_FileDialogFileType)
+	{
+	case CEditor::FILETYPE_MAP: pExt = ".map"; break;
+	case CEditor::FILETYPE_IMG: pExt = ".png"; break;
+	}
+	if(str_comp(pName, ".") == 0
+		|| (str_comp(pName, "..") == 0 && (str_comp(pEditor->m_pFileDialogPath, "maps") == 0 || str_comp(pEditor->m_pFileDialogPath, "mapres") == 0))
+		|| (pExt && !IsDir && !str_endswith(pName, pExt)))
+	{
 		return 0;
+	}
 
 	CEditor::CFilelistItem Item;
 	str_copy(Item.m_aFilename, pName, sizeof(Item.m_aFilename));
 	if(IsDir)
 		str_format(Item.m_aName, sizeof(Item.m_aName), "%s/", pName);
 	else
-		str_copy(Item.m_aName, pName, min(static_cast<int>(sizeof(Item.m_aName)), Length-3));
+		str_truncate(Item.m_aName, sizeof(Item.m_aName), pName, str_length(pName) - 4);
 	Item.m_IsDir = IsDir != 0;
 	Item.m_IsLink = false;
 	Item.m_StorageType = StorageType;
@@ -3794,7 +3801,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 
 										// clamp tangents
 										pEnvelope->m_lPoints[i].m_aInTangentdx[c] = clamp(pEnvelope->m_lPoints[i].m_aInTangentdx[c], -pEnvelope->m_lPoints[i].m_Time, 0);
-										pEnvelope->m_lPoints[i].m_aOutTangentdx[c] = clamp(pEnvelope->m_lPoints[i].m_aOutTangentdx[c], 0, 
+										pEnvelope->m_lPoints[i].m_aOutTangentdx[c] = clamp(pEnvelope->m_lPoints[i].m_aOutTangentdx[c], 0,
 																						(int)(EndTime*1000.f - pEnvelope->m_lPoints[i].m_Time));
 									}
 								}
@@ -3864,7 +3871,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 							float y_out = py + fx2f(pEnvelope->m_lPoints[i].m_aOutTangentdy[c])/(Top-Bottom);
 
 							CUIRect Final;
-							Final.x = View.x + x_out*View.w; 
+							Final.x = View.x + x_out*View.w;
 							Final.y = View.y+View.h - y_out*View.h;
 							Final.x -= 2.0f;
 							Final.y -= 2.0f;
@@ -3892,7 +3899,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 									if((Input()->KeyIsPressed(KEY_LCTRL) || Input()->KeyIsPressed(KEY_RCTRL)))
 									{
 										pEnvelope->m_lPoints[i].m_aOutTangentdx[c] += (int)((m_MouseDeltaX));
-										pEnvelope->m_lPoints[i].m_aOutTangentdy[c] -= f2fx(m_MouseDeltaY*0.001f);		
+										pEnvelope->m_lPoints[i].m_aOutTangentdy[c] -= f2fx(m_MouseDeltaY*0.001f);
 									}
 									else
 									{
@@ -3901,7 +3908,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 									}
 
 									// clamp time value
-									pEnvelope->m_lPoints[i].m_aOutTangentdx[c] = clamp(pEnvelope->m_lPoints[i].m_aOutTangentdx[c], 0, 
+									pEnvelope->m_lPoints[i].m_aOutTangentdx[c] = clamp(pEnvelope->m_lPoints[i].m_aOutTangentdx[c], 0,
 																						(int)(EndTime*1000.f - pEnvelope->m_lPoints[i].m_Time));
 
 									//
@@ -3937,7 +3944,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 							else
 								Graphics()->SetColor(aColors[c].r*ColorMod, aColors[c].g*ColorMod, aColors[c].b*ColorMod, 0.5f);
 
-							IGraphics::CFreeformItem FreeformItem(Final.x+Final.w/2, Final.y, Final.x+Final.w/2, Final.y, 
+							IGraphics::CFreeformItem FreeformItem(Final.x+Final.w/2, Final.y, Final.x+Final.w/2, Final.y,
 																 Final.x+Final.w, Final.y+Final.h, Final.x, Final.y+Final.h);
 							Graphics()->QuadsDrawFreeform(&FreeformItem, 1);
 						}
@@ -3949,7 +3956,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 							float y_in = py + fx2f(pEnvelope->m_lPoints[i].m_aInTangentdy[c])/(Top-Bottom);
 
 							CUIRect Final;
-							Final.x = View.x + x_in*View.w; 
+							Final.x = View.x + x_in*View.w;
 							Final.y = View.y+View.h - y_in*View.h;
 							Final.x -= 2.0f;
 							Final.y -= 2.0f;
@@ -3977,7 +3984,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 									if((Input()->KeyIsPressed(KEY_LCTRL) || Input()->KeyIsPressed(KEY_RCTRL)))
 									{
 										pEnvelope->m_lPoints[i].m_aInTangentdx[c] += (int)((m_MouseDeltaX));
-										pEnvelope->m_lPoints[i].m_aInTangentdy[c] -= f2fx(m_MouseDeltaY*0.001f);		
+										pEnvelope->m_lPoints[i].m_aInTangentdy[c] -= f2fx(m_MouseDeltaY*0.001f);
 									}
 									else
 									{
@@ -3987,7 +3994,7 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 
 									// clamp time value
 									pEnvelope->m_lPoints[i].m_aInTangentdx[c] = clamp(pEnvelope->m_lPoints[i].m_aInTangentdx[c], -pEnvelope->m_lPoints[i].m_Time, 0);
-																			
+
 									//
 									m_SelectedQuadEnvelope = m_SelectedEnvelope;
 									m_ShowEnvelopePreview = SHOWENV_SELECTED;
@@ -4022,11 +4029,11 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 								Graphics()->SetColor(aColors[c].r*ColorMod, aColors[c].g*ColorMod, aColors[c].b*ColorMod, 0.5f);
 
 							// draw triangle
-							IGraphics::CFreeformItem FreeformItem(Final.x+Final.w/2, Final.y, Final.x+Final.w/2, Final.y, 
+							IGraphics::CFreeformItem FreeformItem(Final.x+Final.w/2, Final.y, Final.x+Final.w/2, Final.y,
 																 Final.x+Final.w, Final.y+Final.h, Final.x, Final.y+Final.h);
 							Graphics()->QuadsDrawFreeform(&FreeformItem, 1);
 						}
-						
+
 					}
 				}
 			}
@@ -4130,6 +4137,7 @@ int CEditor::PopupMenuFile(CEditor *pEditor, CUIRect View)
 
 void CEditor::RenderMenubar(CUIRect MenuBar)
 {
+	CUIRect ExitButton;
 	static CUIRect s_File /*, view, help*/;
 
 	MenuBar.VSplitLeft(60.0f, &s_File, &MenuBar);
@@ -4137,14 +4145,26 @@ void CEditor::RenderMenubar(CUIRect MenuBar)
 		UiInvokePopupMenu(&s_File, 1, s_File.x, s_File.y+s_File.h-1.0f, 120, 150, PopupMenuFile, this);
 
 	CUIRect Info;
+	MenuBar.VSplitRight(20.f, &MenuBar, &ExitButton);
 	MenuBar.VSplitLeft(40.0f, 0, &MenuBar);
 	MenuBar.VSplitLeft(MenuBar.w*0.75f, &MenuBar, &Info);
+	
+
 	char aBuf[128];
 	str_format(aBuf, sizeof(aBuf), "File: %s", m_aFileName);
 	UI()->DoLabel(&MenuBar, aBuf, 10.0f, CUI::ALIGN_LEFT);
 
 	str_format(aBuf, sizeof(aBuf), "Z: %i, A: %.1f, G: %i", m_ZoomLevel, m_AnimateSpeed, m_GridFactor);
 	UI()->DoLabel(&Info, aBuf, 10.0f, CUI::ALIGN_RIGHT);
+
+	// Exit editor button
+	static int s_ExitButton;
+	ExitButton.VSplitRight(13.f, 0, &ExitButton);
+	if(DoButton_Editor(&s_ExitButton, "\xE2\x9C\x95", 1, &ExitButton, 0, "[ctrl+shift+e] Exit"))
+	{
+		g_Config.m_ClEditor ^= 1;
+		Input()->MouseModeRelative();
+	}
 }
 
 void CEditor::Render()
@@ -4312,18 +4332,20 @@ void CEditor::Render()
 	{
 		float mx = UI()->MouseX();
 		float my = UI()->MouseY();
-			
+
 		{
-			// render butt ugly mouse cursor	
+			// render butt ugly mouse cursor
 			Graphics()->TextureSet(m_CursorTexture);
+			Graphics()->WrapClamp();
 			Graphics()->QuadsBegin();
 			if(ms_pUiGotContext == UI()->HotItem())
 				Graphics()->SetColor(1,0,0,1);
 			IGraphics::CQuadItem QuadItem(mx,my, 16.0f, 16.0f);
 			Graphics()->QuadsDrawTL(&QuadItem, 1);
 			Graphics()->QuadsEnd();
+			Graphics()->WrapNormal();
 		}
-			
+
 		if(m_MouseEdMode == MOUSE_PIPETTE)
 		{
 			// display selected color (pipette)
@@ -4331,7 +4353,7 @@ void CEditor::Render()
 			Graphics()->QuadsBegin();
 			Graphics()->SetColor(m_SelectedColor.r, m_SelectedColor.g, m_SelectedColor.b, m_SelectedColor.a);
 			IGraphics::CQuadItem QuadItem(mx+1.0f,my-20.0f, 16.0f, 16.0f);
-			Graphics()->QuadsDrawTL(&QuadItem, 1);			
+			Graphics()->QuadsDrawTL(&QuadItem, 1);
 			Graphics()->QuadsEnd();
 		}
 	}
@@ -4531,6 +4553,96 @@ void CEditor::Init()
 
 	Reset();
 	m_Map.m_Modified = false;
+
+#ifdef CONF_DEBUG
+	m_pConsole->Register("map_magic", "i", CFGFLAG_CLIENT, ConMapMagic, this, "1-grass_doodads, 2-winter_main, 3-both");
+#endif
+}
+
+static const char *s_aMaps[] = {"ctf1", "ctf2", "ctf3", "ctf4", "ctf5", "ctf6", "ctf7", "ctf8", "dm1", "dm2", "dm3", "dm6", "dm7", "dm8", "dm9", "lms1"};
+static const char *s_aImageName[] = { "grass_doodads", "winter_main" };
+
+static int s_GrassDoodadsIndicesOld[] = { 42, 43, 44, 58, 59, 60, 74, 75, 76, 132, 133, 148, 149, 163, 164, 165, 169, 170, 185, 186 };
+static int s_GrassDoodadsIndicesNew[] = { 217, 218, 219, 233, 234, 235, 249, 250, 251, 182, 183, 198, 199, 213, 214, 215, 184, 185, 200, 201 };
+static int s_WinterMainIndicesOld[] = { 166, 167, 168, 169, 170, 171, 182, 183, 184, 185, 186, 187, 198, 199, 200, 201, 202, 203, 174, 177, 178, 179, 180, 193, 194, 195, 196, 197, 209, 210, 211, 212, 215, 216, 231, 232, 248, 249, 250, 251, 252, 253, 254, 255, 229, 230, 224, 225, 226, 227, 228 };
+static int s_WinterMainIndicesNew[] = { 218, 219, 220, 221, 222, 223, 234, 235, 236, 237, 238, 239, 250, 251, 252, 253, 254, 255, 95, 160, 161, 162, 163, 192, 193, 194, 195, 196, 176, 177, 178, 179, 232, 233, 248, 249, 240, 241, 242, 243, 244, 245, 246, 247, 224, 225, 226, 227, 228, 229, 230 };
+
+void CEditor::ConMapMagic(IConsole::IResult *pResult, void *pUserData)
+{
+	CEditor *pSelf = static_cast<CEditor *>(pUserData);
+	int Flag = pResult->GetInteger(0);
+
+	for(unsigned m = 0; m < sizeof(s_aMaps) / sizeof(s_aMaps[0]); ++m)
+	{
+		char aBuf[64] = { 0 };
+		str_format(aBuf, sizeof(aBuf), "maps/%s.map", s_aMaps[m]);
+		dbg_msg("map magic", "processing map '%s'", s_aMaps[m]);
+		CallbackOpenMap(aBuf, IStorage::TYPE_ALL, pSelf);
+		bool Edited = false;
+
+		// find image
+		for(int i = 0; i < pSelf->m_Map.m_lImages.size(); ++i)
+		{
+			for(unsigned SrcIndex = 0; SrcIndex < sizeof(s_aImageName) / sizeof(s_aImageName[0]); ++SrcIndex)
+			{
+				if(((1 << SrcIndex)&Flag) && !str_comp(pSelf->m_Map.m_lImages[i]->m_aName, s_aImageName[SrcIndex]))
+				{
+					dbg_msg("map magic", "found image '%s'. doing magic", s_aImageName[SrcIndex]);
+					pSelf->DoMapMagic(i, SrcIndex);
+					Edited = true;
+				}
+			}
+		}
+
+		if(Edited)
+		{
+			str_format(aBuf, sizeof(aBuf), "maps/%s_mapmagic.map", s_aMaps[m]);
+			dbg_msg("map magic", "saving map '%s_mapmagic'", s_aMaps[m]);
+			CallbackSaveMap(aBuf, IStorage::TYPE_SAVE, pSelf);
+		}
+	}
+}
+
+void CEditor::DoMapMagic(int ImageID, int SrcIndex)
+{
+	for(int g = 0; g < m_Map.m_lGroups.size(); g++)
+	{
+		for(int i = 0; i < m_Map.m_lGroups[g]->m_lLayers.size(); i++)
+		{
+			if(m_Map.m_lGroups[g]->m_lLayers[i]->m_Type == LAYERTYPE_TILES)
+			{
+				CLayerTiles *pLayer = static_cast<CLayerTiles *>(m_Map.m_lGroups[g]->m_lLayers[i]);
+				if(pLayer->m_Image == ImageID)
+				{
+					for(int Count = 0; Count < pLayer->m_Height*pLayer->m_Width; ++Count)
+					{
+						if(SrcIndex == 0)	// grass_doodads
+						{
+							for(unsigned TileIndex = 0; TileIndex < sizeof(s_GrassDoodadsIndicesOld) / sizeof(s_GrassDoodadsIndicesOld[0]); ++TileIndex)
+							{
+								if(pLayer->m_pTiles[Count].m_Index == s_GrassDoodadsIndicesOld[TileIndex])
+								{
+									pLayer->m_pTiles[Count].m_Index = s_GrassDoodadsIndicesNew[TileIndex];
+									break;
+								}
+							}
+						}
+						else if(SrcIndex == 1)	// winter_main
+						{
+							for(unsigned TileIndex = 0; TileIndex < sizeof(s_WinterMainIndicesOld) / sizeof(s_WinterMainIndicesOld[0]); ++TileIndex)
+							{
+								if(pLayer->m_pTiles[Count].m_Index == s_WinterMainIndicesOld[TileIndex])
+								{
+									pLayer->m_pTiles[Count].m_Index = s_WinterMainIndicesNew[TileIndex];
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void CEditor::DoMapBorder()
@@ -4563,8 +4675,8 @@ void CEditor::UpdateAndRender()
 	UI()->StartCheck();
 
 	// handle mouse movement
-	float mx, my, Mwx, Mwy;
-	float rx, ry;
+	float mx, my, Mwx, Mwy, Mdx, Mdy;
+	float rx = 0.0f, ry = 0.0f;
 	{
 		Input()->MouseRelative(&rx, &ry);
 		UI()->ConvertMouseMove(&rx, &ry);
@@ -4577,12 +4689,14 @@ void CEditor::UpdateAndRender()
 			s_MouseY += ry;
 		}
 
-		s_MouseX = clamp(s_MouseX, 0.0f, UI()->Screen()->w);
-		s_MouseY = clamp(s_MouseY, 0.0f, UI()->Screen()->h);
+		s_MouseX = clamp(s_MouseX, 0.0f, (float)Graphics()->ScreenWidth());
+		s_MouseY = clamp(s_MouseY, 0.0f, (float)Graphics()->ScreenHeight());
 
 		// update the ui
-		mx = s_MouseX;
-		my = s_MouseY;
+		mx = (s_MouseX/(float)Graphics()->ScreenWidth())*UI()->Screen()->w;
+		my = (s_MouseY/(float)Graphics()->ScreenHeight())*UI()->Screen()->h;
+		Mdx = (m_MouseDeltaX/(float)Graphics()->ScreenWidth())*UI()->Screen()->w;
+		Mdy = (m_MouseDeltaY/(float)Graphics()->ScreenHeight())*UI()->Screen()->h;
 		Mwx = 0;
 		Mwy = 0;
 
@@ -4596,10 +4710,10 @@ void CEditor::UpdateAndRender()
 			float WorldWidth = aPoints[2]-aPoints[0];
 			float WorldHeight = aPoints[3]-aPoints[1];
 
-			Mwx = aPoints[0] + WorldWidth * (s_MouseX/UI()->Screen()->w);
-			Mwy = aPoints[1] + WorldHeight * (s_MouseY/UI()->Screen()->h);
-			m_MouseDeltaWx = m_MouseDeltaX*(WorldWidth / UI()->Screen()->w);
-			m_MouseDeltaWy = m_MouseDeltaY*(WorldHeight / UI()->Screen()->h);
+			Mwx = aPoints[0] + WorldWidth * (mx/UI()->Screen()->w);
+			Mwy = aPoints[1] + WorldHeight * (my/UI()->Screen()->h);
+			m_MouseDeltaWx = Mdx*(WorldWidth / UI()->Screen()->w);
+			m_MouseDeltaWy = Mdy*(WorldHeight / UI()->Screen()->h);
 		}
 
 		int Buttons = 0;

@@ -5,22 +5,22 @@
 #include <game/server/entities/character.h>
 #include <game/server/gamecontext.h>
 #include <game/server/player.h>
-#include "sur.h"
+#include "lts.h"
 
-CGameControllerSUR::CGameControllerSUR(CGameContext *pGameServer) : IGameController(pGameServer)
+CGameControllerLTS::CGameControllerLTS(CGameContext *pGameServer) : IGameController(pGameServer)
 {
-	m_pGameType = "SUR";
+	m_pGameType = "LTS";
 	m_GameFlags = GAMEFLAG_TEAMS|GAMEFLAG_SURVIVAL;
 }
 
 // game
-void CGameControllerSUR::DoWincheckRound()
+void CGameControllerLTS::DoWincheckRound()
 {
 	int Count[2] = {0};
 	for(int i = 0; i < MAX_CLIENTS; ++i)
 	{
 		if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS &&
-			(!GameServer()->m_apPlayers[i]->m_RespawnDisabled || 
+			(!GameServer()->m_apPlayers[i]->m_RespawnDisabled ||
 			(GameServer()->m_apPlayers[i]->GetCharacter() && GameServer()->m_apPlayers[i]->GetCharacter()->IsAlive())))
 			++Count[GameServer()->m_apPlayers[i]->GetTeam()];
 	}

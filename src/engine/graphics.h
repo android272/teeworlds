@@ -69,6 +69,9 @@ public:
 		TEXLOAD_NOMIPMAPS = 2,
 		TEXLOAD_ARRAY_256 = 4,
 		TEXLOAD_MULTI_DIMENSION = 8,
+		TEXLOAD_LINEARMIPMAPS = 16,
+
+		NUMTILES_DIMENSION = 16,			// number of tiles in each dimension within a texture
 	};
 
 	/* Constants: Wrap Modes */

@@ -1,3 +1,7 @@
+<a href="https://repology.org/metapackage/teeworlds/versions">
+    <img src="https://repology.org/badge/vertical-allrepos/teeworlds.svg" alt="Packaging status" align="right">
+</a>
+
 Teeworlds [![CircleCI](https://circleci.com/gh/teeworlds/teeworlds.svg?style=svg)](https://circleci.com/gh/teeworlds/teeworlds)
 =========
 
@@ -16,5 +20,9 @@ text including copyright information.
 
 Please visit https://www.teeworlds.com/ for up-to-date information about
 the game, including new versions, custom maps and much more.
+
+Instructions to build the game can be found at 
+https://teeworlds.com/?page=docs&wiki=compiling_everything. In
+particular, you will need SDL2 and FreeType installed.
 
 Originally written by Magnus Auvinen.
